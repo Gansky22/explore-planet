@@ -1,101 +1,175 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Tesseract from "tesseract.js";
+
+const STORAGE_KEY = "explore-planet-v12";
+const GOOGLE_TTS_API_KEY = "AIzaSyBpBZEHnPjGEZAFpcrW97sSiGHsHmisQdw";
 
 const LANGS = {
-  EN: { label: "English", key: "en", voice: "en-US", recognition: "en-US" },
-  CN: { label: "中文", key: "cn", voice: "zh-CN", recognition: "zh-CN" },
-  BM: { label: "Bahasa", key: "bm", voice: "ms-MY", recognition: "ms-MY" },
+  EN: { label: "English", key: "en", browserVoice: "en-US", googleVoice: "en-US-Standard-C" },
+  CN: { label: "中文", key: "cn", browserVoice: "zh-CN", googleVoice: "cmn-CN-Standard-A" },
+  BM: { label: "Bahasa", key: "bm", browserVoice: "ms-MY", googleVoice: "ms-MY-Standard-A" },
 };
 
 const PLANETS = [
-  { id: 0, name: "地球", icon: "🌍", needStars: 0 },
-  { id: 1, name: "月球", icon: "🌙", needStars: 8 },
-  { id: 2, name: "火星", icon: "🪐", needStars: 16 },
-  { id: 3, name: "木星", icon: "⭐", needStars: 24 },
-  { id: 4, name: "银河", icon: "🌌", needStars: 32 },
+  { id: 0, name: "地球", icon: "🌍", need: 0 },
+  { id: 1, name: "月球", icon: "🌙", need: 10 },
+  { id: 2, name: "火星", icon: "🪐", need: 20 },
+  { id: 3, name: "木星", icon: "⭐", need: 35 },
+  { id: 4, name: "银河", icon: "🌌", need: 50 },
 ];
 
-const LIBRARY = {
-  "一年级": [
-    { en: "apple", cn: "苹果", bm: "epal", hint: "水果", sentence: "I eat an apple." },
-    { en: "cat", cn: "猫", bm: "kucing", hint: "动物", sentence: "The cat is small." },
-    { en: "dog", cn: "狗", bm: "anjing", hint: "动物", sentence: "The dog can run." },
-    { en: "sun", cn: "太阳", bm: "matahari", hint: "天空", sentence: "The sun is hot." },
-    { en: "milk", cn: "牛奶", bm: "susu", hint: "饮料", sentence: "Milk is white." },
-    { en: "book", cn: "书", bm: "buku", hint: "阅读", sentence: "This is my book." },
-    { en: "ball", cn: "球", bm: "bola", hint: "玩具", sentence: "Kick the ball." },
-    { en: "cake", cn: "蛋糕", bm: "kek", hint: "甜点", sentence: "The cake is sweet." },
-    { en: "star", cn: "星星", bm: "bintang", hint: "夜空", sentence: "I see a star." },
-    { en: "fish", cn: "鱼", bm: "ikan", hint: "水里游", sentence: "The fish can swim." },
-  ],
-  "二年级": [
-    { en: "banana", cn: "香蕉", bm: "pisang", hint: "黄色水果", sentence: "Bananas are yellow." },
-    { en: "teacher", cn: "老师", bm: "guru", hint: "学校", sentence: "My teacher is kind." },
-    { en: "school", cn: "学校", bm: "sekolah", hint: "学习的地方", sentence: "I go to school." },
-    { en: "friend", cn: "朋友", bm: "kawan", hint: "伙伴", sentence: "My friend is here." },
-    { en: "window", cn: "窗户", bm: "tingkap", hint: "房子里", sentence: "Open the window." },
-    { en: "garden", cn: "花园", bm: "taman", hint: "种花的地方", sentence: "The garden is pretty." },
-    { en: "happy", cn: "快乐", bm: "gembira", hint: "开心", sentence: "I feel happy." },
-    { en: "yellow", cn: "黄色", bm: "kuning", hint: "颜色", sentence: "This flower is yellow." },
-    { en: "mother", cn: "妈妈", bm: "ibu", hint: "家人", sentence: "My mother cooks well." },
-    { en: "father", cn: "爸爸", bm: "bapa", hint: "家人", sentence: "My father is tall." },
-  ],
-  "三年级": [
-    { en: "because", cn: "因为", bm: "kerana", hint: "表示原因", sentence: "I smile because I am happy." },
-    { en: "library", cn: "图书馆", bm: "perpustakaan", hint: "借书的地方", sentence: "We read in the library." },
-    { en: "picture", cn: "图画", bm: "gambar", hint: "照片或图", sentence: "Draw a picture here." },
-    { en: "family", cn: "家庭", bm: "keluarga", hint: "爸爸妈妈孩子", sentence: "My family eats together." },
-    { en: "flower", cn: "花", bm: "bunga", hint: "植物", sentence: "The flower smells nice." },
-    { en: "people", cn: "人们", bm: "orang", hint: "很多人", sentence: "Many people are waiting." },
-    { en: "outside", cn: "外面", bm: "luar", hint: "不是里面", sentence: "Let's play outside." },
-    { en: "morning", cn: "早晨", bm: "pagi", hint: "一天开始", sentence: "Good morning, teacher." },
-    { en: "animal", cn: "动物", bm: "haiwan", hint: "生物", sentence: "The zoo has many animals." },
-    { en: "answer", cn: "答案", bm: "jawapan", hint: "问题后面", sentence: "Write your answer clearly." },
-  ],
-  "四年级": [
-    { en: "beautiful", cn: "美丽", bm: "cantik", hint: "很漂亮", sentence: "The sky is beautiful." },
-    { en: "important", cn: "重要", bm: "penting", hint: "很关键", sentence: "Sleep is important." },
-    { en: "different", cn: "不同", bm: "berbeza", hint: "不一样", sentence: "These two books are different." },
-    { en: "remember", cn: "记得", bm: "ingat", hint: "记住", sentence: "Remember your homework." },
-    { en: "holiday", cn: "假期", bm: "cuti", hint: "放假", sentence: "We travel in the holiday." },
-    { en: "science", cn: "科学", bm: "sains", hint: "学科", sentence: "Science is interesting." },
-    { en: "country", cn: "国家", bm: "negara", hint: "nation", sentence: "Malaysia is my country." },
-    { en: "weather", cn: "天气", bm: "cuaca", hint: "晴天雨天", sentence: "The weather is hot today." },
-    { en: "planet", cn: "星球", bm: "planet", hint: "宇宙", sentence: "Earth is a planet." },
-    { en: "rocket", cn: "火箭", bm: "roket", hint: "飞上天", sentence: "The rocket goes up fast." },
-  ],
-  "五年级": [
-    { en: "adventure", cn: "冒险", bm: "pengembaraan", hint: "刺激旅程", sentence: "Our adventure begins now." },
-    { en: "knowledge", cn: "知识", bm: "pengetahuan", hint: "学习得到", sentence: "Reading gives us knowledge." },
-    { en: "question", cn: "问题", bm: "soalan", hint: "问句", sentence: "Ask one good question." },
-    { en: "language", cn: "语言", bm: "bahasa", hint: "说话系统", sentence: "English is a language." },
-    { en: "journey", cn: "旅程", bm: "perjalanan", hint: "出发过程", sentence: "The journey was long." },
-    { en: "student", cn: "学生", bm: "murid", hint: "学校里", sentence: "Every student must listen." },
-    { en: "practice", cn: "练习", bm: "latihan", hint: "重复做", sentence: "Practice makes you better." },
-    { en: "correct", cn: "正确", bm: "betul", hint: "对的", sentence: "Your answer is correct." },
-    { en: "challenge", cn: "挑战", bm: "cabaran", hint: "要克服", sentence: "This challenge is fun." },
-    { en: "progress", cn: "进步", bm: "kemajuan", hint: "越来越好", sentence: "I can see your progress." },
-  ],
-  "六年级": [
-    { en: "discover", cn: "发现", bm: "menemui", hint: "找到新的", sentence: "We discover new ideas." },
-    { en: "creative", cn: "有创意", bm: "kreatif", hint: "想法特别", sentence: "She is very creative." },
-    { en: "imagine", cn: "想象", bm: "bayangkan", hint: "脑海画面", sentence: "Imagine a better world." },
-    { en: "explorer", cn: "探索者", bm: "peneroka", hint: "去发现的人", sentence: "The explorer is brave." },
-    { en: "mission", cn: "任务", bm: "misi", hint: "要完成的事", sentence: "Finish the mission today." },
-    { en: "victory", cn: "胜利", bm: "kemenangan", hint: "赢了", sentence: "Victory feels great." },
-    { en: "future", cn: "未来", bm: "masa depan", hint: "将来", sentence: "The future is bright." },
-    { en: "memory", cn: "记忆", bm: "ingatan", hint: "脑中留下", sentence: "This trip is a good memory." },
-    { en: "strategy", cn: "策略", bm: "strategi", hint: "计划方法", sentence: "We need a new strategy." },
-    { en: "improve", cn: "改善", bm: "meningkatkan", hint: "变更好", sentence: "Practice will improve your skill." },
-  ],
-};
+const GRADES = ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"];
 
-const STORAGE_KEY = "explore-planet-v5";
+const SHOP_ITEMS = [
+  { id: "food", name: "宠物粮食", icon: "🍖", price: 5, type: "food" },
+  { id: "helmet", name: "太空头盔", icon: "🪖", price: 20, type: "item" },
+  { id: "bag", name: "火箭背包", icon: "🎒", price: 30, type: "item" },
+  { id: "cape", name: "银河披风", icon: "🧥", price: 50, type: "item" },
+  { id: "dog", name: "太空狗", icon: "🐶", price: 40, type: "pet" },
+  { id: "cat", name: "外星猫", icon: "🐱", price: 60, type: "pet" },
+];
 
-function shuffle(list) {
-  return [...list].sort(() => Math.random() - 0.5);
+const DEFAULT_WORDS = [
+  { id: "w1", en: "apple", cn: "苹果", bm: "epal", hint: "水果", grade: "一年级" },
+  { id: "w2", en: "banana", cn: "香蕉", bm: "pisang", hint: "黄色水果", grade: "一年级" },
+  { id: "w3", en: "cat", cn: "猫", bm: "kucing", hint: "动物", grade: "一年级" },
+  { id: "w4", en: "dog", cn: "狗", bm: "anjing", hint: "动物", grade: "一年级" },
+  { id: "w5", en: "book", cn: "书", bm: "buku", hint: "阅读", grade: "一年级" },
+  { id: "w6", en: "teacher", cn: "老师", bm: "guru", hint: "学校人物", grade: "二年级" },
+  { id: "w7", en: "school", cn: "学校", bm: "sekolah", hint: "学习的地方", grade: "二年级" },
+  { id: "w8", en: "window", cn: "窗户", bm: "tingkap", hint: "房子里", grade: "二年级" },
+  { id: "w9", en: "family", cn: "家庭", bm: "keluarga", hint: "家人", grade: "二年级" },
+  { id: "w10", en: "flower", cn: "花", bm: "bunga", hint: "植物", grade: "二年级" },
+  { id: "w11", en: "happy", cn: "快乐", bm: "gembira", hint: "开心", grade: "三年级" },
+  { id: "w12", en: "mother", cn: "妈妈", bm: "ibu", hint: "家人", grade: "三年级" },
+  { id: "w13", en: "father", cn: "爸爸", bm: "bapa", hint: "家人", grade: "三年级" },
+  { id: "w14", en: "sun", cn: "太阳", bm: "matahari", hint: "天空", grade: "三年级" },
+  { id: "w15", en: "milk", cn: "牛奶", bm: "susu", hint: "饮料", grade: "三年级" },
+  { id: "w16", en: "beautiful", cn: "美丽", bm: "cantik", hint: "很漂亮", grade: "四年级" },
+  { id: "w17", en: "important", cn: "重要", bm: "penting", hint: "很关键", grade: "四年级" },
+  { id: "w18", en: "weather", cn: "天气", bm: "cuaca", hint: "晴天雨天", grade: "四年级" },
+  { id: "w19", en: "science", cn: "科学", bm: "sains", hint: "学科", grade: "四年级" },
+  { id: "w20", en: "country", cn: "国家", bm: "negara", hint: "国家", grade: "四年级" },
+];
+
+const DEFAULT_CLASSES = [{ id: "c1", name: "一年级A班" }];
+const DEFAULT_ASSIGNMENTS = [
+  { id: "a1", title: "水果练习", classId: "c1", grade: "一年级", wordIds: ["w1", "w2"], createdBy: "老师" },
+];
+
+function uid(prefix = "id") {
+  return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function getWordByLang(item, lang) {
+function repairStudent(student) {
+  if (!student || typeof student !== "object") return null;
+
+  const safeName = typeof student.name === "string" && student.name.trim()
+    ? student.name.trim()
+    : "未命名学生";
+
+  const safeStats =
+    student.stats && typeof student.stats === "object"
+      ? {
+          correct: typeof student.stats.correct === "number" ? student.stats.correct : 0,
+          wrong: typeof student.stats.wrong === "number" ? student.stats.wrong : 0,
+          learned: typeof student.stats.learned === "number" ? student.stats.learned : 0,
+        }
+      : { correct: 0, wrong: 0, learned: 0 };
+
+  let safePet = null;
+
+  if (student.pet && typeof student.pet === "object") {
+    safePet = {
+      name: typeof student.pet.name === "string" ? student.pet.name : "太空狗",
+      exp: typeof student.pet.exp === "number" ? student.pet.exp : 0,
+    };
+  } else if (typeof student.pet === "string" && student.pet.trim()) {
+    safePet = {
+      name: student.pet.trim(),
+      exp: 0,
+    };
+  }
+
+  return {
+    id:
+      typeof student.id === "string" && student.id.trim()
+        ? student.id
+        : uid("stu"),
+    name: safeName,
+    classId:
+      typeof student.classId === "string" && student.classId.trim()
+        ? student.classId
+        : "c1",
+    grade:
+      typeof student.grade === "string" && student.grade.trim()
+        ? student.grade
+        : "一年级",
+    stars: typeof student.stars === "number" ? student.stars : 0,
+    score: typeof student.score === "number" ? student.score : 0,
+    level: typeof student.level === "number" ? student.level : 1,
+    inventory: Array.isArray(student.inventory) ? student.inventory : [],
+    petFood: typeof student.petFood === "number" ? student.petFood : 0,
+    pet: safePet,
+    stats: safeStats,
+    wrongWords: Array.isArray(student.wrongWords) ? student.wrongWords : [],
+  };
+}
+
+function repairLoadedState(data) {
+  const safeData = data && typeof data === "object" ? data : {};
+
+  return {
+    students: Array.isArray(safeData.students)
+      ? safeData.students.map(repairStudent).filter(Boolean)
+      : [],
+    classes: Array.isArray(safeData.classes) ? safeData.classes : DEFAULT_CLASSES,
+    words: Array.isArray(safeData.words) ? safeData.words : DEFAULT_WORDS,
+    assignments: Array.isArray(safeData.assignments)
+      ? safeData.assignments
+      : DEFAULT_ASSIGNMENTS,
+    teacherNotes: Array.isArray(safeData.teacherNotes)
+      ? safeData.teacherNotes
+      : [],
+  };
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+
+    if (!raw) {
+      return {
+        students: [],
+        classes: DEFAULT_CLASSES,
+        words: DEFAULT_WORDS,
+        assignments: DEFAULT_ASSIGNMENTS,
+        teacherNotes: [],
+      };
+    }
+
+    const parsed = JSON.parse(raw);
+    return repairLoadedState(parsed);
+  } catch {
+    return {
+      students: [],
+      classes: DEFAULT_CLASSES,
+      words: DEFAULT_WORDS,
+      assignments: DEFAULT_ASSIGNMENTS,
+      teacherNotes: [],
+    };
+  }
+}
+
+function saveState(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function getWord(item, lang) {
   return item[LANGS[lang].key];
 }
 
@@ -103,7 +177,6 @@ function normalizeBmText(text) {
   return text
     .replace(/\bsekolah\b/gi, "sekolah")
     .replace(/\bkucing\b/gi, "kucing")
-    .replace(/\brumah\b/gi, "rumah")
     .replace(/\bguru\b/gi, "guru")
     .replace(/\bbuku\b/gi, "buku")
     .replace(/\bpisang\b/gi, "pisang")
@@ -112,21 +185,21 @@ function normalizeBmText(text) {
     .replace(/\bkeluarga\b/gi, "keluarga");
 }
 
-function speakText(text, voice = "en-US", rate = 0.9) {
+function speakBrowser(text, lang) {
   if (!window.speechSynthesis) return;
-
   const voices = window.speechSynthesis.getVoices();
+  const voiceCode = LANGS[lang].browserVoice;
   let selectedVoice = null;
   let finalText = text;
 
-  if (voice === "ms-MY") {
+  if (voiceCode === "ms-MY") {
     finalText = normalizeBmText(text);
     selectedVoice =
       voices.find((v) => v.lang === "ms-MY") ||
       voices.find((v) => v.lang.toLowerCase().includes("ms-my")) ||
       voices.find((v) => v.lang.toLowerCase().startsWith("ms")) ||
       null;
-  } else if (voice === "zh-CN") {
+  } else if (voiceCode === "zh-CN") {
     selectedVoice =
       voices.find((v) => v.lang === "zh-CN") ||
       voices.find((v) => v.lang.toLowerCase().startsWith("zh")) ||
@@ -140,8 +213,8 @@ function speakText(text, voice = "en-US", rate = 0.9) {
 
   const speech = new SpeechSynthesisUtterance(finalText);
   if (selectedVoice) speech.voice = selectedVoice;
-  speech.lang = voice;
-  speech.rate = rate;
+  speech.lang = voiceCode;
+  speech.rate = voiceCode === "ms-MY" ? 0.82 : 0.9;
   speech.pitch = 1;
   speech.volume = 1;
 
@@ -149,518 +222,1139 @@ function speakText(text, voice = "en-US", rate = 0.9) {
   window.speechSynthesis.speak(speech);
 }
 
-function loadSavedState() {
+async function speakGoogle(text, lang) {
+  if (!GOOGLE_TTS_API_KEY || GOOGLE_TTS_API_KEY.includes("换成")) {
+    speakBrowser(text, lang);
+    return;
+  }
+
+  const finalText = lang === "BM" ? normalizeBmText(text) : text;
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const res = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { text: finalText },
+          voice: {
+            languageCode: LANGS[lang].browserVoice,
+            name: LANGS[lang].googleVoice,
+          },
+          audioConfig: {
+            audioEncoding: "MP3",
+            speakingRate: lang === "BM" ? 0.82 : 0.9,
+          },
+        }),
+      }
+    );
+
+    const data = await res.json();
+    if (!data.audioContent) {
+      speakBrowser(text, lang);
+      return;
+    }
+
+    const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+    audio.play();
   } catch {
-    return null;
+    speakBrowser(text, lang);
   }
 }
 
-export default function App() {
-  const saved = loadSavedState();
+function playSound(name) {
+  try {
+    const a = new Audio(`/sounds/${name}.mp3`);
+    a.play();
+  } catch {}
+}
 
-  const [screen, setScreen] = useState(saved?.screen || "map");
-  const [grade, setGrade] = useState(saved?.grade || "一年级");
-  const [lang, setLang] = useState(saved?.lang || "EN");
-  const [planetId, setPlanetId] = useState(saved?.planetId || 0);
-  const [questionIndex, setQuestionIndex] = useState(saved?.questionIndex || 0);
-  const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState("");
-  const [score, setScore] = useState(saved?.score || 0);
-  const [stars, setStars] = useState(saved?.stars || 0);
-  const [exp, setExp] = useState(saved?.exp || 0);
-  const [wrongBook, setWrongBook] = useState(saved?.wrongBook || []);
-  const [dailyCount, setDailyCount] = useState(saved?.dailyCount || 0);
-  const [teacherMode, setTeacherMode] = useState(saved?.teacherMode || false);
-  const [customWord, setCustomWord] = useState("");
-  const [customList, setCustomList] = useState(saved?.customList || []);
-  const [slowMode, setSlowMode] = useState(saved?.slowMode || false);
-  const [leaderboard, setLeaderboard] = useState(saved?.leaderboard || [
-    { name: "小宇航员A", score: 18 },
-    { name: "小宇航员B", score: 15 },
-    { name: "小宇航员C", score: 12 },
-  ]);
-  const [bmVoiceStatus, setBmVoiceStatus] = useState("检测中...");
+function generateAstronautSeed(name) {
+  const sum = (name || "A").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return {
+    suit: ["#60a5fa", "#a78bfa", "#f472b6", "#34d399", "#fbbf24"][sum % 5],
+    visor: ["#38bdf8", "#60a5fa", "#22d3ee"][sum % 3],
+    accent: ["#facc15", "#fb7185", "#4ade80", "#f97316"][sum % 4],
+  };
+}
 
-  const lessonWords = useMemo(() => {
-    const base = LIBRARY[grade] || [];
-    const merged = [...base, ...customList];
-    return shuffle(merged).slice(0, 5);
-  }, [grade, customList, planetId]);
+function Astronaut2D({ name, level, inventory = [] }) {
+  const seed = generateAstronautSeed(name);
+  const hasHelmet = inventory.some((i) => i.id === "helmet");
+  const hasBag = inventory.some((i) => i.id === "bag");
+  const hasCape = inventory.some((i) => i.id === "cape");
 
-  const current = lessonWords[questionIndex];
-  const level = Math.floor(exp / 25) + 1;
-  const accuracy = dailyCount ? Math.round((score / dailyCount) * 100) : 0;
-  const unlockedPlanet = Math.min(PLANETS.length - 1, Math.floor(stars / 8));
-  const aiTip = current
-    ? teacherMode
-      ? `AI老师提示：这个单词和“${current.hint}”有关。${lang === "EN" ? "Listen to the first sound carefully." : "先听清楚开头发音。"}`
-      : `提示：${current.hint}`
-    : "";
+  return (
+    <div style={{ textAlign: "center", minWidth: 180 }}>
+      <div
+        style={{
+          width: 130,
+          height: 170,
+          margin: "0 auto",
+          position: "relative",
+          animation: "float 2.4s ease-in-out infinite",
+        }}
+      >
+        {hasCape && (
+          <div
+            style={{
+              position: "absolute",
+              top: 54,
+              left: 18,
+              width: 92,
+              height: 84,
+              background: "linear-gradient(180deg,#7c3aed,#4f46e5)",
+              borderRadius: "40px 40px 16px 16px",
+              zIndex: 0,
+              opacity: 0.9,
+            }}
+          />
+        )}
 
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        screen,
-        grade,
-        lang,
-        planetId,
-        questionIndex,
-        score,
-        stars,
-        exp,
-        wrongBook,
-        dailyCount,
-        teacherMode,
-        customList,
-        slowMode,
-        leaderboard,
-      })
+        {hasBag && (
+          <>
+            <div style={{ position: "absolute", top: 68, left: 8, width: 24, height: 42, background: "#475569", borderRadius: 10 }} />
+            <div style={{ position: "absolute", top: 68, right: 8, width: 24, height: 42, background: "#475569", borderRadius: 10 }} />
+          </>
+        )}
+
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 27,
+            width: 76,
+            height: 76,
+            background: hasHelmet ? "#e5e7eb" : seed.suit,
+            borderRadius: "50%",
+            border: "4px solid #cbd5e1",
+            zIndex: 2,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 39,
+            width: 52,
+            height: 28,
+            background: seed.visor,
+            borderRadius: "18px",
+            border: "3px solid #ffffffaa",
+            zIndex: 3,
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            top: 62,
+            left: 33,
+            width: 64,
+            height: 74,
+            background: seed.suit,
+            borderRadius: 22,
+            border: "4px solid #e5e7eb",
+            zIndex: 2,
+          }}
+        />
+
+        <div style={{ position: "absolute", top: 82, left: 12, width: 22, height: 48, background: seed.suit, borderRadius: 14, transform: "rotate(18deg)" }} />
+        <div style={{ position: "absolute", top: 82, right: 12, width: 22, height: 48, background: seed.suit, borderRadius: 14, transform: "rotate(-18deg)" }} />
+
+        <div style={{ position: "absolute", bottom: 0, left: 42, width: 18, height: 46, background: seed.suit, borderRadius: 14 }} />
+        <div style={{ position: "absolute", bottom: 0, right: 42, width: 18, height: 46, background: seed.suit, borderRadius: 14 }} />
+
+        <div style={{ position: "absolute", top: 92, left: 54, width: 22, height: 22, background: seed.accent, borderRadius: "50%", zIndex: 4 }} />
+
+        {level >= 3 && (
+  <div style={{ position: "absolute", top: -8, right: 8, fontSize: 26 }}>
+    ⭐
+  </div>
+)}
+
+{level >= 5 && (
+  <div style={{ position: "absolute", top: -10, left: -10, fontSize: 28 }}>
+    🚀
+  </div>
+)}
+
+{level >= 8 && (
+  <div style={{ position: "absolute", bottom: -5, right: -5, fontSize: 28 }}>
+    🌟
+  </div>
+)}
+      </div>
+      <div style={{ marginTop: 8, fontWeight: 700 }}>{name || "宇航员"}</div>
+      <div style={{ color: "#cbd5e1", fontSize: 14 }}>Lv.{level}</div>
+    </div>
+  );
+}
+
+function getPetStageIndex(exp) {
+  const safeExp = typeof exp === "number" ? exp : 0;
+  if (safeExp >= 15) return 2;
+  if (safeExp >= 5) return 1;
+  return 0;
+}
+
+function Pet2D({ pet }) {
+  if (!pet || typeof pet !== "object") {
+    return (
+      <div style={petWrapStyle}>
+        <div style={{ fontSize: 44 }}>🥚</div>
+        <div>还没有宠物</div>
+      </div>
     );
-  }, [screen, grade, lang, planetId, questionIndex, score, stars, exp, wrongBook, dailyCount, teacherMode, customList, slowMode, leaderboard]);
+  }
+
+  const safeExp = typeof pet.exp === "number" ? pet.exp : 0;
+  const safeName = pet.name || "未知宠物";
+  const stage = getPetStageIndex(safeExp);
+  const stageName = ["幼仔", "成长", "终极形态"][stage];
+  const icon = PET_ICONS[safeName]?.[stage] || "🐾";
+
+  let glow = "";
+  if (stage === 2) {
+    glow = "0 0 20px #60a5fa";
+  }
+
+  return (
+    <div style={petWrapStyle}>
+      <div
+        style={{
+          fontSize: 60,
+          animation: "float 1.9s ease-in-out infinite",
+          boxShadow: glow,
+          borderRadius: "50%",
+          display: "inline-block",
+          padding: 8,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ fontWeight: 700 }}>{safeName}</div>
+      <div style={{ color: "#cbd5e1", fontSize: 14 }}>{stageName}</div>
+      <div style={{ color: "#cbd5e1", fontSize: 14 }}>经验 {safeExp} / 15</div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,0.08)",
+        borderRadius: 18,
+        padding: 14,
+        minWidth: 110,
+        textAlign: "center",
+      }}
+    >
+      <div style={{ color: "#cbd5e1", fontSize: 13 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
+    </div>
+  );
+}
+
+export default function App() {
+  const initial = loadState();
+  localStorage.removeItem("explore-planet-v12");
+  const [mode, setMode] = useState("role");
+  const [screen, setScreen] = useState("home");
+  const [lang, setLang] = useState("BM");
+  const [ttsMode, setTtsMode] = useState("google");
+
+  const [students, setStudents] = useState(initial.students);
+  const [classes, setClasses] = useState(initial.classes);
+  const [words, setWords] = useState(initial.words);
+  const [assignments, setAssignments] = useState(initial.assignments);
+  const [teacherNotes, setTeacherNotes] = useState(initial.teacherNotes);
+
+  const [studentNameInput, setStudentNameInput] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+
+  const [question, setQuestion] = useState(null);
+  const [options, setOptions] = useState([]);
+  const [feedback, setFeedback] = useState("");
+  const [currentPlanet, setCurrentPlanet] = useState(0);
+
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrText, setOcrText] = useState("");
+  const [ocrHint, setOcrHint] = useState("");
+  const [ocrGrade, setOcrGrade] = useState("一年级");
+
+  const currentStudent = students.find((s) => s.id === selectedStudentId) || null;
 
   useEffect(() => {
-    const updateVoices = () => {
-      const voices = window.speechSynthesis?.getVoices?.() || [];
-      const hasBm = voices.some(
-        (v) => v.lang === "ms-MY" || v.lang.toLowerCase().includes("ms-my") || v.lang.toLowerCase().startsWith("ms")
-      );
-      setBmVoiceStatus(hasBm ? "✅ 已检测到马来文语音" : "⚠️ 电脑未检测到 ms-MY 语音，可能会退回其他口音");
-    };
-    updateVoices();
+    saveState({ students, classes, words, assignments, teacherNotes });
+  }, [students, classes, words, assignments, teacherNotes]);
+
+  useEffect(() => {
+    const loadVoices = () => window.speechSynthesis?.getVoices?.();
+    loadVoices();
     if (window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = updateVoices;
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }, []);
 
-  const playWord = () => {
-    if (!current) return;
-    speakText(getWordByLang(current, lang), LANGS[lang].voice, slowMode ? 0.6 : 0.9);
+  const unlockedPlanet = currentStudent
+    ? PLANETS.reduce((acc, p) => (currentStudent.stars >= p.need ? p.id : acc), 0)
+    : 0;
+
+  const leaderboard = useMemo(() => {
+    return [...students].sort((a, b) => b.score - a.score).slice(0, 5);
+  }, [students]);
+
+  const studentAssignments = useMemo(() => {
+    if (!currentStudent) return [];
+    const classIds = [currentStudent.classId].filter(Boolean);
+    return assignments.filter((a) => classIds.includes(a.classId));
+  }, [assignments, currentStudent]);
+
+  function updateStudent(patch) {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === selectedStudentId ? { ...s, ...patch } : s))
+    );
+  }
+
+  function createOrSelectStudent() {
+  const clean = studentNameInput.trim();
+  if (!clean) {
+    alert("请输入学生名字");
+    return;
+  }
+
+  let safeStudents = [...students];
+
+  if (clean === "sky") {
+    safeStudents = safeStudents.filter((s) => s.name !== "sky");
+    setStudents(safeStudents);
+  }
+
+  const existing = safeStudents.find((s) => s.name === clean);
+  if (existing) {
+    setSelectedStudentId(existing.id);
+    setMode("student");
+    setScreen("home");
+    return;
+  }
+
+  const newStudent = {
+    id: uid("stu"),
+    name: clean,
+    classId: "c1",
+    grade: "一年级",
+    stars: 0,
+    score: 0,
+    level: 1,
+    inventory: [],
+    petFood: 0,
+    pet: null,
+    stats: { correct: 0, wrong: 0, learned: 0 },
+    wrongWords: [],
   };
 
-  const playSentence = () => {
-    if (!current) return;
-    if (lang === "EN") {
-      speakText(current.sentence, "en-US", slowMode ? 0.65 : 0.95);
-    } else if (lang === "CN") {
-      speakText(current.cn, "zh-CN", slowMode ? 0.6 : 0.9);
-    } else {
-      speakText(current.bm, "ms-MY", slowMode ? 0.58 : 0.82);
-    }
-  };
+  setStudents([...safeStudents, newStudent]);
+  setSelectedStudentId(newStudent.id);
+  setMode("student");
+  setScreen("home");
+}
 
-  const playBmDemo = () => {
-    speakText("sekolah kucing rumah guru buku", "ms-MY", 0.78);
-  };
+  function generateQuestion() {
+    if (!currentStudent) return;
+    const bank = words.filter((w) => w.grade === currentStudent.grade);
+    const pool = bank.length ? bank : words;
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    const correct = getWord(q, lang);
 
-  const checkAnswer = () => {
-    if (!current) return;
-    const target = getWordByLang(current, lang).toLowerCase().trim();
-    const typed = answer.toLowerCase().trim();
-    const correct = typed === target;
-    setDailyCount((v) => v + 1);
+    const wrongs = shuffle(
+      pool
+        .map((w) => getWord(w, lang))
+        .filter((w) => w !== correct)
+    ).slice(0, 2);
 
-    if (correct) {
-      setFeedback("✅ 正确！继续前进");
-      setScore((v) => v + 1);
-      setStars((v) => v + 2);
-      setExp((v) => v + 5);
-    } else {
-      setFeedback(`❌ 错误，正确答案：${getWordByLang(current, lang)}`);
-      setStars((v) => v + 1);
-      setWrongBook((v) => [...v, getWordByLang(current, lang)]);
-    }
-  };
-
-  const nextQuestion = () => {
-    if (questionIndex < lessonWords.length - 1) {
-      setQuestionIndex((v) => v + 1);
-      setAnswer("");
-      setFeedback("");
-    } else {
-      const newScore = score;
-      setLeaderboard((prev) => [...prev, { name: "你", score: newScore }].sort((a, b) => b.score - a.score).slice(0, 5));
-      setScreen("result");
-    }
-  };
-
-  const startPlanet = (id) => {
-    if (id > unlockedPlanet) return;
-    setPlanetId(id);
-    setQuestionIndex(0);
-    setAnswer("");
+    setQuestion(q);
+    setOptions(shuffle([correct, ...wrongs]));
     setFeedback("");
-    setScreen("quiz");
-  };
+  }
 
-  const addCustomWord = () => {
-    const clean = customWord.trim();
-    if (!clean) return;
-    setCustomList((v) => [...v, { en: clean, cn: clean, bm: clean, hint: "家长自定义单词", sentence: clean }]);
-    setCustomWord("");
-  };
+  async function playQuestion() {
+    if (!question) return;
+    const text = getWord(question, lang);
+    if (ttsMode === "google") {
+      await speakGoogle(text, lang);
+    } else {
+      speakBrowser(text, lang);
+    }
+  }
 
-  const backToMap = () => {
-    setScreen("map");
-    setQuestionIndex(0);
-    setAnswer("");
-    setFeedback("");
-  };
+  function answer(opt) {
+    if (!question || !currentStudent) return;
+    const correct = getWord(question, lang);
 
-  const resetAll = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setScreen("map");
-    setGrade("一年级");
-    setLang("EN");
-    setPlanetId(0);
-    setQuestionIndex(0);
-    setAnswer("");
-    setFeedback("");
-    setScore(0);
-    setStars(0);
-    setExp(0);
-    setWrongBook([]);
-    setDailyCount(0);
-    setTeacherMode(false);
-    setCustomWord("");
-    setCustomList([]);
-    setSlowMode(false);
-    setLeaderboard([
-      { name: "小宇航员A", score: 18 },
-      { name: "小宇航员B", score: 15 },
-      { name: "小宇航员C", score: 12 },
-    ]);
-  };
+    if (opt === correct) {
+      playSound("ding");
+      const newScore = currentStudent.score + 1;
+      const newStars = currentStudent.stars + 2;
+      const newCorrect = currentStudent.stats.correct + 1;
+      const newLearned = currentStudent.stats.learned + 1;
+      const newLevel = Math.floor(newScore / 5) + 1;
 
-  return (
-    <div style={pageStyle}>
-      <div style={{ maxWidth: 1180, margin: "0 auto", width: "100%" }}>
-        <div style={headerRow}>
-          <div>
-            <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.2 }}>🚀 探索星球 v5</div>
-            <div style={{ color: "#c7d2fe", marginTop: 6 }}>BM 发音增强版：星球地图 + 存档 + 排行榜 + AI老师 + 家长模式</div>
+      updateStudent({
+        score: newScore,
+        stars: newStars,
+        level: newLevel,
+        stats: {
+          ...currentStudent.stats,
+          correct: newCorrect,
+          learned: newLearned,
+        },
+      });
+
+      if (newScore % 5 === 0) {
+        alert("🎁 恭喜获得太空宝箱！");
+        playSound("win");
+      }
+
+      setFeedback("✅ 正确！");
+    } else {
+      playSound("oops");
+      updateStudent({
+        stats: {
+          ...currentStudent.stats,
+          wrong: currentStudent.stats.wrong + 1,
+          learned: currentStudent.stats.learned + 1,
+        },
+        wrongWords: [...currentStudent.wrongWords, correct],
+      });
+      setFeedback(`❌ 错误，正确答案是：${correct}`);
+    }
+
+    setTimeout(() => {
+      generateQuestion();
+    }, 850);
+  }
+
+  function buy(item) {
+    if (!currentStudent) return;
+    if (currentStudent.stars < item.price) {
+      alert("星星不足");
+      return;
+    }
+
+    if (item.type === "pet" && currentStudent.pet) {
+      alert("已经有宠物了");
+      return;
+    }
+
+    playSound("coin");
+
+    if (item.type === "food") {
+      updateStudent({
+        stars: currentStudent.stars - item.price,
+        petFood: currentStudent.petFood + 1,
+      });
+      return;
+    }
+
+    if (item.type === "pet") {
+      updateStudent({
+        stars: currentStudent.stars - item.price,
+        pet: { name: item.name, exp: 0 },
+      });
+      return;
+    }
+
+    updateStudent({
+      stars: currentStudent.stars - item.price,
+      inventory: [...currentStudent.inventory, item],
+    });
+  }
+
+  function feedPet() {
+    if (!currentStudent?.pet) {
+      alert("还没有宠物");
+      return;
+    }
+    if (currentStudent.petFood <= 0) {
+      alert("没有宠物粮食");
+      return;
+    }
+
+    playSound("coin");
+
+    updateStudent({
+      petFood: currentStudent.petFood - 1,
+      pet: {
+        ...currentStudent.pet,
+        exp: currentStudent.pet.exp + 1,
+      },
+    });
+  }
+
+  async function scanImage(file) {
+    if (!file) return;
+    setOcrLoading(true);
+
+    try {
+      const {
+        data: { text },
+      } = await Tesseract.recognize(file, "eng");
+      setOcrText(text);
+    } catch {
+      alert("OCR 识别失败");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  function addOcrWords() {
+    const list = ocrText
+      .split("\n")
+      .map((w) => w.trim())
+      .filter((w) => w.length > 1)
+      .slice(0, 50);
+
+    if (!list.length) {
+      alert("没有可加入的题目");
+      return;
+    }
+
+    const newWords = list.map((w) => ({
+      id: uid("w"),
+      en: w.toLowerCase(),
+      cn: w,
+      bm: w.toLowerCase(),
+      hint: ocrHint || "管理员导入题目",
+      grade: ocrGrade,
+    }));
+
+    setWords((prev) => [...prev, ...newWords]);
+    setOcrText("");
+    setOcrHint("");
+    alert(`已加入 ${newWords.length} 个题目`);
+  }
+
+  function addTeacherAssignment() {
+    const grade = "一年级";
+    const bank = words.filter((w) => w.grade === grade).slice(0, 5);
+    const newAssignment = {
+      id: uid("a"),
+      title: `老师发布练习 ${assignments.length + 1}`,
+      classId: "c1",
+      grade,
+      wordIds: bank.map((w) => w.id),
+      createdBy: "老师",
+    };
+    setAssignments((prev) => [...prev, newAssignment]);
+    setTeacherNotes((prev) => [...prev, `已为 ${grade} 发布新作业`]);
+    alert("已发布新作业");
+  }
+
+  if (mode === "role") {
+    return (
+      <div style={pageStyle}>
+        <style>{globalCss}</style>
+        <div style={centerCardStyle}>
+          <h1 style={{ marginTop: 0 }}>🚀 探索星球 v12</h1>
+          <p style={{ color: "#cbd5e1" }}>学生 / 家长 / 老师 / 管理员 完整版</p>
+
+          <input
+            value={studentNameInput}
+            onChange={(e) => setStudentNameInput(e.target.value)}
+            placeholder="输入学生名字"
+            style={inputStyle}
+          />
+
+          <div style={buttonWrapStyle}>
+            <button style={btnStyle} onClick={createOrSelectStudent}>
+              学生登录
+            </button>
+            <button style={btnStyle} onClick={() => setMode("parent")}>
+              家长后台
+            </button>
+            <button style={btnStyle} onClick={() => setMode("teacher")}>
+              老师后台
+            </button>
+            <button style={btnStyle} onClick={() => setMode("admin")}>
+              管理员后台
+            </button>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <Pill>⭐ 星星 {stars}</Pill>
-            <Pill>🎯 分数 {score}</Pill>
-            <Pill>📈 Lv.{level}</Pill>
-            <Pill>📘 正确率 {accuracy}%</Pill>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "student" && currentStudent) {
+    return (
+      <div style={pageStyle}>
+        <style>{globalCss}</style>
+
+        <div style={headerStyle}>
+          <div>
+            <h1 style={{ margin: 0 }}>🚀 探索星球</h1>
+            <div style={{ color: "#cbd5e1" }}>学生中心</div>
+          </div>
+          <div style={buttonWrapStyle}>
+            <button style={smallBtnStyle} onClick={() => setMode("role")}>退出</button>
+            <button style={smallBtnStyle} onClick={() => setMode("parent")}>家长端</button>
           </div>
         </div>
 
-        <div style={mainGrid}>
-          <div style={cardStyle}>
-            {screen === "map" && (
+        <div style={mainGridStyle}>
+          <div style={panelStyle}>
+            {screen === "home" && (
               <>
-                <div style={toolbarRow}>
-                  <h2 style={titleStyle}>🌌 星球地图</h2>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {Object.keys(LANGS).map((key) => (
-                      <button key={key} onClick={() => setLang(key)} style={{ ...smallBtn, background: lang === key ? "#22c55e" : "rgba(255,255,255,0.12)", color: "white" }}>
-                        {LANGS[key].label}
-                      </button>
-                    ))}
-                  </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                  <Astronaut2D
+                    name={currentStudent.name}
+                    level={currentStudent.level}
+                    inventory={currentStudent.inventory}
+                  />
+                  <Pet2D pet={currentStudent.pet} />
                 </div>
 
-                <div style={toolbarRow}>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    <div>年级：</div>
-                    <select value={grade} onChange={(e) => setGrade(e.target.value)} style={selectStyle}>
-                      {Object.keys(LIBRARY).map((g) => <option key={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => setTeacherMode((v) => !v)} style={{ ...smallBtn, background: teacherMode ? "#8b5cf6" : "#334155", color: "white" }}>
-                      🧠 AI老师：{teacherMode ? "开启" : "关闭"}
-                    </button>
-                    <button onClick={() => setSlowMode((v) => !v)} style={{ ...smallBtn, background: slowMode ? "#0ea5e9" : "#334155", color: "white" }}>
-                      🐢 慢速：{slowMode ? "开启" : "关闭"}
-                    </button>
-                  </div>
+                <div style={statsWrapStyle}>
+                  <StatCard label="等级" value={`Lv.${currentStudent.level}`} />
+                  <StatCard label="星星" value={`⭐ ${currentStudent.stars}`} />
+                  <StatCard label="分数" value={`🎯 ${currentStudent.score}`} />
+                  <StatCard label="正确率" value={`${Math.round((currentStudent.stats.correct / Math.max(1, currentStudent.stats.learned)) * 100)}%`} />
                 </div>
 
-                <div style={planetGrid}>
-                  {PLANETS.map((planet) => {
-                    const unlocked = planet.id <= unlockedPlanet;
+                <h3>🌌 星球地图</h3>
+                <div style={planetGridStyle}>
+                  {PLANETS.map((p) => {
+                    const unlocked = p.id <= unlockedPlanet;
                     return (
-                      <button key={planet.id} onClick={() => startPlanet(planet.id)} style={{ ...planetStyle, background: unlocked ? "linear-gradient(135deg,#3b82f6,#8b5cf6)" : "rgba(255,255,255,0.08)", opacity: unlocked ? 1 : 0.55, cursor: unlocked ? "pointer" : "not-allowed" }}>
-                        <div style={{ fontSize: 34 }}>{planet.icon}</div>
-                        <div style={{ marginTop: 8, fontWeight: 800 }}>{planet.name}</div>
-                        <div style={{ marginTop: 6, fontSize: 13, color: "#e0e7ff" }}>{unlocked ? "可进入" : `需要 ${planet.needStars} 星星`}</div>
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          if (!unlocked) return;
+                          setCurrentPlanet(p.id);
+                          setScreen("quiz");
+                          setTimeout(generateQuestion, 0);
+                        }}
+                        style={{
+                          ...planetStyle,
+                          opacity: unlocked ? 1 : 0.45,
+                          cursor: unlocked ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        <div style={{ fontSize: 34 }}>{p.icon}</div>
+                        <div>{p.name}</div>
+                        <div style={{ fontSize: 12, color: "#cbd5e1" }}>
+                          {unlocked ? "可进入" : `需要 ${p.need} ⭐`}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
 
-                <div style={{ ...bmStatusStyle, marginTop: 24 }}>{bmVoiceStatus}</div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                  <button onClick={playBmDemo} style={{ ...smallBtn, background: "#10b981", color: "white" }}>🎧 测试 BM 发音</button>
-                  <button onClick={() => setLang("BM")} style={{ ...smallBtn, background: "#f59e0b", color: "white" }}>切到 Bahasa 模式</button>
-                </div>
-
-                <div style={{ marginTop: 24, color: "#dbeafe", lineHeight: 1.8 }}>
-                  <div>🌍 选择星球后开始闯关，每关 5 题。</div>
-                  <div>🔊 支持英语 / 中文 / 马来西亚国语发音。</div>
-                  <div>🇲🇾 v5 已强化 BM 语音优先选择 ms-MY，并加入常见词发音优化。</div>
-                  <div>💾 学习记录会自动保存，刷新不会消失。</div>
+                <div style={buttonWrapStyle}>
+                  <button style={btnStyle} onClick={() => { setScreen("quiz"); setTimeout(generateQuestion, 0); }}>开始学习</button>
+                  <button style={btnStyle} onClick={() => setScreen("shop")}>太空商店</button>
+                  <button style={btnStyle} onClick={() => setScreen("pet")}>我的宠物</button>
+                  <button style={btnStyle} onClick={() => setScreen("bag")}>我的装备</button>
+                  <button style={btnStyle} onClick={() => setScreen("settings")}>语音设置</button>
                 </div>
               </>
             )}
 
-            {screen === "quiz" && current && (
+            {screen === "quiz" && question && (
               <>
-                <div style={toolbarRow}>
-                  <button onClick={backToMap} style={{ ...smallBtn, background: "#334155", color: "white" }}>← 返回地图</button>
-                  <div style={{ color: "#c7d2fe" }}>{PLANETS[planetId].icon} {PLANETS[planetId].name} · 第 {questionIndex + 1}/{lessonWords.length} 题 · {LANGS[lang].label}</div>
+                <h2>📚 学习闯关</h2>
+                <p style={{ color: "#cbd5e1" }}>
+                  当前星球：{PLANETS[currentPlanet]?.icon} {PLANETS[currentPlanet]?.name}
+                </p>
+                <p>提示：{question.hint}</p>
+                <p>语言：{LANGS[lang].label}</p>
+
+                <div style={buttonWrapStyle}>
+                  <button style={btnStyle} onClick={playQuestion}>🔊 听题目</button>
+                  <button style={btnStyle} onClick={() => setScreen("home")}>返回首页</button>
                 </div>
 
-                <div style={{ textAlign: "center", marginTop: 28 }}>
-                  <div style={{ fontSize: 24, fontWeight: 800 }}>提示：{current.hint}</div>
-                  <div style={{ color: "#c7d2fe", marginTop: 8 }}>{aiTip}</div>
-
-                  <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginTop: 22, width: "100%" }}>
-                    <button onClick={playWord} style={{ ...bigBtn, background: "#22c55e" }}>🔊 听单词</button>
-                    <button onClick={playSentence} style={{ ...bigBtn, background: "#0ea5e9" }}>📖 听例句 / 释义</button>
-                  </div>
-
-                  <input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="输入你听到的单词" style={inputStyle} />
-
-                  <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginTop: 18, width: "100%" }}>
-                    <button onClick={checkAnswer} style={{ ...bigBtn, background: "#3b82f6" }}>提交答案</button>
-                    <button onClick={nextQuestion} style={{ ...bigBtn, background: "#f59e0b" }}>下一题</button>
-                  </div>
-
-                  <div style={{ minHeight: 36, marginTop: 20, fontSize: 22, fontWeight: 700 }}>{feedback}</div>
+                <div style={{ marginTop: 18, ...buttonWrapStyle }}>
+                  {options.map((opt) => (
+                    <button key={opt} style={optionBtnStyle} onClick={() => answer(opt)}>
+                      {opt}
+                    </button>
+                  ))}
                 </div>
+
+                <h3>{feedback}</h3>
               </>
             )}
 
-            {screen === "result" && (
-              <div style={{ textAlign: "center" }}>
-                <h2 style={titleStyle}>🎉 闯关完成</h2>
-                <div style={resultText}>当前等级：Lv.{level}</div>
-                <div style={resultText}>当前星星：{stars}</div>
-                <div style={resultText}>累计分数：{score}</div>
-                <div style={resultText}>正确率：{accuracy}%</div>
-                <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginTop: 22, width: "100%" }}>
-                  <button onClick={backToMap} style={{ ...bigBtn, background: "#22c55e" }}>继续闯关</button>
-                  <button onClick={resetAll} style={{ ...bigBtn, background: "#ef4444" }}>清空记录重新开始</button>
+            {screen === "shop" && (
+              <>
+                <h2>🛒 太空商店</h2>
+                <p>你有 ⭐ {currentStudent.stars}</p>
+
+                {SHOP_ITEMS.map((item) => (
+                  <div key={item.id} style={listCardStyle}>
+                    <span style={{ fontSize: 28 }}>{item.icon}</span>
+                    <span>{item.name}</span>
+                    <span>⭐ {item.price}</span>
+                    <button onClick={() => buy(item)}>购买</button>
+                  </div>
+                ))}
+
+                <button style={btnStyle} onClick={() => setScreen("home")}>返回首页</button>
+              </>
+            )}
+
+            {screen === "pet" && (
+              <>
+                <h2>🐶 我的宠物</h2>
+                <Pet2D pet={currentStudent.pet} />
+
+                {currentStudent.pet ? (
+                  <>
+                    <p>🍖 粮食：{currentStudent.petFood}</p>
+                    <button style={btnStyle} onClick={feedPet}>喂食</button>
+                  </>
+                ) : (
+                  <p>还没有宠物，去商店购买吧。</p>
+                )}
+
+                <button style={btnStyle} onClick={() => setScreen("home")}>返回首页</button>
+              </>
+            )}
+
+            {screen === "bag" && (
+              <>
+                <h2>🎒 我的装备</h2>
+                {currentStudent.inventory.length === 0 && <p>暂无装备</p>}
+                {currentStudent.inventory.map((item, idx) => (
+                  <div key={`${item.id}_${idx}`} style={listCardStyle}>
+                    <span style={{ fontSize: 28 }}>{item.icon}</span>
+                    <span>{item.name}</span>
+                  </div>
+                ))}
+                <button style={btnStyle} onClick={() => setScreen("home")}>返回首页</button>
+              </>
+            )}
+
+            {screen === "settings" && (
+              <>
+                <h2>⚙️ 语音设置</h2>
+                <div style={buttonWrapStyle}>
+                  {Object.keys(LANGS).map((key) => (
+                    <button
+                      key={key}
+                      style={{ ...btnStyle, background: lang === key ? "#16a34a" : "#4f46e5" }}
+                      onClick={() => setLang(key)}
+                    >
+                      {LANGS[key].label}
+                    </button>
+                  ))}
                 </div>
-              </div>
+
+                <div style={buttonWrapStyle}>
+                  <button
+                    style={{ ...btnStyle, background: ttsMode === "google" ? "#16a34a" : "#4f46e5" }}
+                    onClick={() => setTtsMode("google")}
+                  >
+                    Google TTS
+                  </button>
+                  <button
+                    style={{ ...btnStyle, background: ttsMode === "browser" ? "#16a34a" : "#4f46e5" }}
+                    onClick={() => setTtsMode("browser")}
+                  >
+                    浏览器语音
+                  </button>
+                </div>
+
+                <button
+                  style={btnStyle}
+                  onClick={() => speakGoogle("sekolah kucing guru buku keluarga", "BM")}
+                >
+                  🇲🇾 测试 BM 发音
+                </button>
+
+                <button style={btnStyle} onClick={() => setScreen("home")}>返回首页</button>
+              </>
             )}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={cardStyle}>
-              <h3 style={sideTitle}>📅 每日任务</h3>
-              <Task done={dailyCount >= 5} text="完成 5 题" />
-              <Task done={dailyCount >= 10} text="完成 10 题" />
-              <Task done={stars >= 10} text="获得 10 颗星星" />
-              <Task done={score >= 5} text="答对 5 题" />
-            </div>
+          <div style={sidePanelStyle}>
+            <h3>📅 每日任务</h3>
+            <TaskRow done={currentStudent.stats.learned >= 5} text="完成 5 题" />
+            <TaskRow done={currentStudent.stats.learned >= 10} text="完成 10 题" />
+            <TaskRow done={currentStudent.stars >= 10} text="获得 10 颗星星" />
+            <TaskRow done={currentStudent.score >= 5} text="答对 5 题" />
 
-            <div style={cardStyle}>
-              <h3 style={sideTitle}>📊 学习报告</h3>
-              <ReportLine label="当前年级" value={grade} />
-              <ReportLine label="当前语言" value={LANGS[lang].label} />
-              <ReportLine label="今日完成" value={`${dailyCount} 题`} />
-              <ReportLine label="累计答对" value={`${score} 题`} />
-              <ReportLine label="错误数量" value={`${wrongBook.length} 个`} />
-            </div>
+            <h3 style={{ marginTop: 20 }}>🏆 排行榜</h3>
+            {leaderboard.map((s, i) => (
+              <div key={s.id} style={rankRowStyle}>
+                <span>{i + 1}. {s.name}</span>
+                <span>{s.score}</span>
+              </div>
+            ))}
 
-            <div style={cardStyle}>
-              <h3 style={sideTitle}>🏆 排行榜</h3>
-              {leaderboard.map((row, idx) => (
-                <div key={`${row.name}-${idx}`} style={rankRowStyle}>
-                  <span>{idx + 1}. {row.name}</span>
-                  <span>{row.score}</span>
+            <h3 style={{ marginTop: 20 }}>❌ 错题本</h3>
+            {currentStudent.wrongWords.length === 0 ? (
+              <div style={{ color: "#cbd5e1" }}>目前没有错题</div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {currentStudent.wrongWords.slice(-10).map((w, i) => (
+                  <span key={`${w}_${i}`} style={chipStyle}>{w}</span>
+                ))}
+              </div>
+            )}
+
+            <h3 style={{ marginTop: 20 }}>📝 当前作业</h3>
+            {studentAssignments.length === 0 ? (
+              <div style={{ color: "#cbd5e1" }}>暂无作业</div>
+            ) : (
+              studentAssignments.map((a) => (
+                <div key={a.id} style={miniCardStyle}>{a.title}</div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "parent") {
+    return (
+      <div style={pageStyle}>
+        <style>{globalCss}</style>
+        <div style={headerStyle}>
+          <h1 style={{ margin: 0 }}>👨‍👩‍👧 家长后台</h1>
+          <button style={smallBtnStyle} onClick={() => setMode("role")}>返回入口</button>
+        </div>
+
+        {students.length === 0 ? (
+          <div style={panelStyle}>还没有学生记录</div>
+        ) : (
+          <div style={mainGridStyle}>
+            {students.map((stu) => (
+              <div key={stu.id} style={panelStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <Astronaut2D name={stu.name} level={stu.level} inventory={stu.inventory} />
+                  <Pet2D pet={stu.pet} />
+                </div>
+
+                <div style={statsWrapStyle}>
+                  <StatCard label="分数" value={stu.score} />
+                  <StatCard label="星星" value={stu.stars} />
+                  <StatCard label="已学题数" value={stu.stats.learned} />
+                  <StatCard label="正确率" value={`${Math.round((stu.stats.correct / Math.max(1, stu.stats.learned)) * 100)}%`} />
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <strong>错题：</strong>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                    {stu.wrongWords.length === 0 ? (
+                      <span style={{ color: "#cbd5e1" }}>暂无</span>
+                    ) : (
+                      stu.wrongWords.slice(-10).map((w, i) => <span key={`${w}_${i}`} style={chipStyle}>{w}</span>)
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (mode === "teacher") {
+    return (
+      <div style={pageStyle}>
+        <style>{globalCss}</style>
+        <div style={headerStyle}>
+          <h1 style={{ margin: 0 }}>🧑‍🏫 老师后台</h1>
+          <button style={smallBtnStyle} onClick={() => setMode("role")}>返回入口</button>
+        </div>
+
+        <div style={mainGridStyle}>
+          <div style={panelStyle}>
+            <h2>🏫 班级</h2>
+            {classes.map((c) => (
+              <div key={c.id} style={listCardStyle}>
+                <span>{c.name}</span>
+              </div>
+            ))}
+
+            <h2 style={{ marginTop: 20 }}>📝 作业管理</h2>
+            <button style={btnStyle} onClick={addTeacherAssignment}>发布一个示范作业</button>
+            {assignments.map((a) => (
+              <div key={a.id} style={listCardStyle}>
+                <span>{a.title}</span>
+                <span>{a.grade}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={panelStyle}>
+            <h2>👩‍🎓 学生列表</h2>
+            {students.length === 0 ? (
+              <div style={{ color: "#cbd5e1" }}>暂无学生</div>
+            ) : (
+              students.map((s) => (
+                <div key={s.id} style={listCardStyle}>
+                  <span>{s.name}</span>
+                  <span>Lv.{s.level}</span>
+                  <span>⭐ {s.stars}</span>
+                </div>
+              ))
+            )}
+
+            <h2 style={{ marginTop: 20 }}>📌 老师通知</h2>
+            {teacherNotes.length === 0 ? (
+              <div style={{ color: "#cbd5e1" }}>暂无通知</div>
+            ) : (
+              teacherNotes.map((n, i) => <div key={i} style={miniCardStyle}>{n}</div>)
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "admin") {
+    return (
+      <div style={pageStyle}>
+        <style>{globalCss}</style>
+        <div style={headerStyle}>
+          <h1 style={{ margin: 0 }}>🛠 管理员后台</h1>
+          <button style={smallBtnStyle} onClick={() => setMode("role")}>返回入口</button>
+        </div>
+
+        <div style={mainGridStyle}>
+          <div style={panelStyle}>
+            <h2>📸 OCR 导入题库</h2>
+            <input type="file" accept="image/*" onChange={(e) => scanImage(e.target.files?.[0])} />
+            {ocrLoading && <p>识别中...</p>}
+
+            <textarea
+              value={ocrText}
+              onChange={(e) => setOcrText(e.target.value)}
+              placeholder="OCR 识别结果"
+              style={{ width: "100%", minHeight: 180, marginTop: 12, padding: 12, borderRadius: 12 }}
+            />
+
+            <input
+              value={ocrHint}
+              onChange={(e) => setOcrHint(e.target.value)}
+              placeholder="题目提示，例如：水果 / 动物"
+              style={{ ...inputStyle, width: "100%", marginTop: 12 }}
+            />
+
+            <select
+              value={ocrGrade}
+              onChange={(e) => setOcrGrade(e.target.value)}
+              style={{ ...inputStyle, width: "100%", marginTop: 12 }}
+            >
+              {GRADES.map((g) => (
+                <option key={g}>{g}</option>
+              ))}
+            </select>
+
+            <button style={btnStyle} onClick={addOcrWords}>加入题库</button>
+          </div>
+
+          <div style={panelStyle}>
+            <h2>📚 当前题库</h2>
+            <div style={{ maxHeight: 420, overflow: "auto" }}>
+              {words.map((w) => (
+                <div key={w.id} style={listCardStyle}>
+                  <span>{w.en}</span>
+                  <span>{w.grade}</span>
                 </div>
               ))}
-            </div>
-
-            <div style={cardStyle}>
-              <h3 style={sideTitle}>📝 错题本</h3>
-              {wrongBook.length === 0 ? (
-                <div style={{ color: "#c7d2fe" }}>目前没有错题，继续加油！</div>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {wrongBook.slice(-10).map((word, i) => <span key={`${word}-${i}`} style={chipStyle}>{word}</span>)}
-                </div>
-              )}
-            </div>
-
-            <div style={cardStyle}>
-              <h3 style={sideTitle}>👨‍👩‍👧 家长自定义听写</h3>
-              <input value={customWord} onChange={(e) => setCustomWord(e.target.value)} placeholder="输入学校本周听写单词" style={{ width: "100%", padding: 12, borderRadius: 12, border: "none", marginBottom: 12 }} />
-              <button onClick={addCustomWord} style={{ ...smallBtn, background: "#10b981", color: "white", width: "100%" }}>加入自定义词库</button>
-              <div style={{ color: "#c7d2fe", marginTop: 10, fontSize: 14 }}>已加入：{customList.length} 个</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 }
 
-function Pill({ children }) {
-  return <div style={pillStyle}>{children}</div>;
-}
-
-function Task({ done, text }) {
-  return <div style={{ marginBottom: 10, color: done ? "#86efac" : "#e2e8f0" }}>{done ? "✅" : "⬜"} {text}</div>;
-}
-
-function ReportLine({ label, value }) {
+function TaskRow({ done, text }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, margin: "8px 0", color: "#dbeafe" }}>
-      <span>{label}</span>
-      <span style={{ fontWeight: 700 }}>{value}</span>
+    <div style={{ marginBottom: 10, color: done ? "#86efac" : "#e2e8f0" }}>
+      {done ? "✅" : "⬜"} {text}
     </div>
   );
 }
 
 const pageStyle = {
   minHeight: "100vh",
-  background: "radial-gradient(circle at top, #2246a8 0%, #12245a 45%, #091126 100%)",
-  fontFamily: "Arial, sans-serif",
+  background: "radial-gradient(circle at top, #1d4ed8 0%, #0f172a 50%, #020617 100%)",
   color: "white",
   padding: 16,
   boxSizing: "border-box",
+  fontFamily: "Arial, sans-serif",
 };
 
-const headerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 14,
-  flexWrap: "wrap",
-  marginBottom: 24,
-  alignItems: "flex-start",
-};
-
-const mainGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-  gap: 20,
-};
-
-const cardStyle = {
-  background: "rgba(255,255,255,0.1)",
-  borderRadius: 24,
-  padding: 24,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-  backdropFilter: "blur(8px)",
-};
-
-const pillStyle = {
-  background: "rgba(255,255,255,0.12)",
-  borderRadius: 999,
-  padding: "10px 14px",
-  fontWeight: 700,
-};
-
-const titleStyle = {
-  margin: 0,
-  fontSize: 30,
-};
-
-const sideTitle = {
-  marginTop: 0,
-  marginBottom: 14,
-  fontSize: 22,
-};
-
-const toolbarRow = {
+const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   gap: 12,
   flexWrap: "wrap",
+  marginBottom: 18,
 };
 
-const smallBtn = {
-  border: "none",
-  borderRadius: 12,
-  padding: "10px 14px",
-  cursor: "pointer",
-  fontWeight: 700,
+const centerCardStyle = {
+  maxWidth: 560,
+  margin: "8vh auto 0",
+  background: "rgba(255,255,255,0.08)",
+  borderRadius: 24,
+  padding: 28,
+  textAlign: "center",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
 };
 
-const bigBtn = {
-  border: "none",
-  borderRadius: 14,
-  padding: "12px 18px",
-  color: "white",
-  cursor: "pointer",
-  fontWeight: 800,
-  fontSize: 16,
-  width: "100%",
-  maxWidth: 220,
+const mainGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gap: 18,
+};
+
+const panelStyle = {
+  background: "rgba(255,255,255,0.08)",
+  borderRadius: 24,
+  padding: 20,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
+};
+
+const sidePanelStyle = {
+  background: "rgba(255,255,255,0.08)",
+  borderRadius: 24,
+  padding: 20,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
 };
 
 const inputStyle = {
-  width: "100%",
-  maxWidth: 560,
-  marginTop: 26,
-  fontSize: 20,
-  padding: "14px 16px",
-  borderRadius: 16,
+  padding: 12,
+  fontSize: 16,
+  borderRadius: 12,
   border: "none",
   outline: "none",
   boxSizing: "border-box",
 };
 
-const selectStyle = {
-  padding: "10px 12px",
+const btnStyle = {
+  padding: "12px 18px",
+  fontSize: 16,
   borderRadius: 12,
   border: "none",
-  fontSize: 16,
+  background: "#4f46e5",
+  color: "white",
+  cursor: "pointer",
 };
 
-const planetGrid = {
+const smallBtnStyle = {
+  padding: "10px 14px",
+  fontSize: 14,
+  borderRadius: 10,
+  border: "none",
+  background: "#334155",
+  color: "white",
+  cursor: "pointer",
+};
+
+const optionBtnStyle = {
+  padding: "14px 18px",
+  minWidth: 140,
+  fontSize: 16,
+  borderRadius: 14,
+  border: "none",
+  background: "#2563eb",
+  color: "white",
+  cursor: "pointer",
+};
+
+const buttonWrapStyle = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const statsWrapStyle = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
+  justifyContent: "center",
+  marginTop: 14,
+  marginBottom: 14,
+};
+
+const planetGridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))",
-  gap: 16,
-  marginTop: 24,
+  gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+  gap: 12,
+  marginTop: 12,
+  marginBottom: 18,
 };
 
 const planetStyle = {
   border: "none",
-  borderRadius: 22,
-  padding: 20,
+  borderRadius: 18,
+  padding: 14,
+  background: "linear-gradient(135deg,#3b82f6,#7c3aed)",
   color: "white",
-  minHeight: 120,
-  boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+};
+
+const listCardStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  padding: 12,
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.06)",
+  marginBottom: 10,
+};
+
+const miniCardStyle = {
+  padding: 10,
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.06)",
+  marginBottom: 10,
 };
 
 const chipStyle = {
-  background: "rgba(239,68,68,0.18)",
-  color: "#fecaca",
-  padding: "8px 10px",
+  padding: "6px 10px",
   borderRadius: 999,
-  fontWeight: 700,
-  fontSize: 14,
-};
-
-const resultText = {
-  fontSize: 22,
-  margin: "10px 0",
+  background: "rgba(239,68,68,0.2)",
+  color: "#fecaca",
+  fontSize: 13,
 };
 
 const rankRowStyle = {
   display: "flex",
   justifyContent: "space-between",
+  gap: 10,
   padding: "8px 0",
-  borderBottom: "1px solid rgba(255,255,255,0.1)",
-  color: "#dbeafe",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
 };
 
-const bmStatusStyle = {
-  padding: "12px 14px",
-  borderRadius: 14,
-  background: "rgba(255,255,255,0.08)",
-  color: "#dbeafe",
+const petWrapStyle = {
+  textAlign: "center",
+  minWidth: 160,
+  padding: 12,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.06)",
 };
+
+const globalCss = `
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+`;
