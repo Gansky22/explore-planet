@@ -1,13 +1,833 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>explore-planet</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>听写冒险岛 v1</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #7cc7ff 0%, #bde7ff 35%, #ebfbff 100%);
+      color: #1f2937;
+      overflow: hidden;
+    }
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      z-index: 20;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+    .brand {
+      font-weight: 800;
+      font-size: 24px;
+      color: #2563eb;
+    }
+    .stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      background: white;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .layout {
+      display: flex;
+      height: 100vh;
+      padding-top: 78px;
+    }
+    .sidebar {
+      width: 320px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(8px);
+      padding: 16px;
+      overflow-y: auto;
+      box-shadow: 8px 0 24px rgba(0,0,0,0.06);
+      z-index: 5;
+    }
+    .panel {
+      background: white;
+      border-radius: 22px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    }
+    .panel h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .panel p, .panel li {
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .panel ul {
+      padding-left: 18px;
+      margin: 8px 0 0;
+    }
+    .btn, button {
+      border: none;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 10px 20px rgba(37,99,235,0.28);
+    }
+    .btn-secondary {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+    .btn-success {
+      background: #16a34a;
+      color: white;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    .btn:hover, button:hover { transform: translateY(-1px); }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .world-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #world {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(transparent 0 95%, rgba(0,0,0,0.04) 95% 100%),
+        linear-gradient(90deg, transparent 0 95%, rgba(0,0,0,0.04) 95% 100%),
+        linear-gradient(180deg, #8ed3ff 0%, #b5e8ff 35%, #cff4ff 36%, #95dc8b 36%, #73cb66 100%);
+      background-size: 80px 80px, 80px 80px, auto;
+    }
+    .zone {
+      position: absolute;
+      border-radius: 26px;
+      padding: 14px;
+      color: white;
+      font-weight: 800;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.16);
+      border: 4px solid rgba(255,255,255,0.45);
+    }
+    .zone .small {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.95;
+    }
+    .zone-english { left: 10%; top: 20%; width: 220px; height: 140px; background: linear-gradient(135deg, #6366f1, #4338ca); }
+    .zone-math { right: 14%; top: 18%; width: 220px; height: 140px; background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .zone-chinese { left: 20%; bottom: 18%; width: 220px; height: 140px; background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .zone-boss { right: 20%; bottom: 15%; width: 260px; height: 160px; background: linear-gradient(135deg, #10b981, #047857); }
+
+    .player {
+      position: absolute;
+      width: 60px;
+      height: 86px;
+      z-index: 9;
+      transition: left 0.45s linear, top 0.45s linear;
+      filter: drop-shadow(0 14px 12px rgba(0,0,0,0.25));
+    }
+    .head {
+      width: 36px;
+      height: 36px;
+      background: #ffd7b1;
+      border-radius: 50%;
+      margin: 0 auto;
+      border: 3px solid #111827;
+    }
+    .body {
+      width: 42px;
+      height: 34px;
+      background: #2563eb;
+      margin: -3px auto 0;
+      border-radius: 12px;
+      border: 3px solid #111827;
+    }
+    .legs {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin-top: -1px;
+    }
+    .leg {
+      width: 12px;
+      height: 22px;
+      background: #111827;
+      border-radius: 0 0 10px 10px;
+    }
+    .pet {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff7b2, #f59e0b);
+      box-shadow: 0 10px 16px rgba(0,0,0,0.18);
+      z-index: 8;
+      transition: left 0.45s linear, top 0.45s linear;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+    .speech {
+      position: absolute;
+      min-width: 150px;
+      max-width: 240px;
+      background: white;
+      border-radius: 16px;
+      padding: 10px 12px;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.18);
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 10;
+      display: none;
+    }
+    .speech:after {
+      content: "";
+      position: absolute;
+      left: 20px;
+      bottom: -10px;
+      border-width: 10px 10px 0 10px;
+      border-style: solid;
+      border-color: white transparent transparent transparent;
+    }
+    .footer-tip {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      background: rgba(17,24,39,0.78);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 14px;
+      z-index: 6;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal.show { display: flex; }
+    .modal-card {
+      width: min(680px, 100%);
+      background: white;
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+      animation: pop 0.2s ease;
+    }
+    @keyframes pop {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .question-box {
+      background: #f8fafc;
+      border-radius: 20px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+    .question-box h2 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .enemy-bar, .hero-bar {
+      height: 14px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .enemy-fill { height: 100%; background: #ef4444; width: 100%; }
+    .hero-fill { height: 100%; background: #22c55e; width: 100%; }
+    input[type="text"] {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 2px solid #dbeafe;
+      outline: none;
+      font-size: 16px;
+      margin-top: 14px;
+    }
+    .battle-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .battle-card {
+      background: #f8fafc;
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .log {
+      height: 92px;
+      overflow: auto;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 14px;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-top: 14px;
+    }
+    .reward {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: #ecfdf5;
+      color: #065f46;
+      font-weight: 700;
+      display: none;
+    }
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px dashed #e5e7eb;
+    }
+    .shop-item:last-child { border-bottom: none; }
+    .muted { color: #6b7280; }
+    .mini {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    @media (max-width: 980px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: 320px; }
+      .world-wrap { height: calc(100vh - 398px); }
+      .zone-english { left: 4%; top: 12%; }
+      .zone-math { right: 4%; top: 12%; }
+      .zone-chinese { left: 6%; bottom: 18%; }
+      .zone-boss { right: 6%; bottom: 10%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">🎮 听写冒险岛 v1</div>
+    <div class="stats">
+      <div class="pill">⭐ 等级 <span id="levelText">1</span></div>
+      <div class="pill">✨ 经验 <span id="xpText">0</span>/<span id="nextXpText">30</span></div>
+      <div class="pill">🪙 金币 <span id="coinText">0</span></div>
+      <div class="pill">❤️ 生命 <span id="hpText">100</span></div>
+      <div class="pill">🐣 宠物 <span id="petStageText">蛋宝宝</span></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panel">
+        <h3>🧭 玩法说明</h3>
+        <p>点击地图区域，角色会自动跑过去并开始任务。答对题目会攻击怪物、获得经验和金币；答错会扣血。</p>
+        <ul>
+          <li>英文森林：单词听写</li>
+          <li>数学塔：加减乘除</li>
+          <li>华文城：词语/拼音</li>
+          <li>Boss神殿：综合挑战</li>
+        </ul>
+        <div class="actions">
+          <button class="btn btn-primary" id="speakGuideBtn">播放说明</button>
+          <button class="btn btn-secondary" id="saveBtn">本机存档</button>
+          <button class="btn btn-secondary" id="loadBtn">读取存档</button>
+        </div>
+        <div class="mini">现在先用本机 localStorage 存档。后面我可以再帮你接 Supabase。</div>
+      </div>
+
+      <div class="panel">
+        <h3>🐾 宠物成长</h3>
+        <p id="petDesc">你的宠物会随着做题成长。等级越高，外观越酷。</p>
+        <div class="actions">
+          <button class="btn btn-success" id="feedPetBtn">喂养宠物（-10金币）</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🛒 小商店</h3>
+        <div class="shop-item">
+          <div>
+            <strong>❤️ 补血药水</strong>
+            <div class="mini">恢复 20 生命</div>
+          </div>
+          <button class="btn btn-secondary" onclick="buyItem('potion')">20金币</button>
+        </div>
+        <div class="shop-item">
+          <div>
+            <strong>⚔️ 攻击卷轴</strong>
+            <div class="mini">下次答对多打 10 伤害</div>
+          </div>
+          <button class="btn btn-secondary" onclick="buyItem('scroll')">30金币</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>📘 今日进度</h3>
+        <p>已答对：<strong id="correctText">0</strong></p>
+        <p>已答错：<strong id="wrongText">0</strong></p>
+        <p>连击：<strong id="comboText">0</strong></p>
+        <p>当前地图：<strong id="zoneText">未进入</strong></p>
+      </div>
+    </aside>
+
+    <main class="world-wrap">
+      <div id="world">
+        <div class="zone zone-english" data-zone="english">
+          🌲 英文森林
+          <span class="small">听单词 → 拼写攻击</span>
+        </div>
+        <div class="zone zone-math" data-zone="math">
+          🧮 数学塔
+          <span class="small">算对才可通关</span>
+        </div>
+        <div class="zone zone-chinese" data-zone="chinese">
+          🏮 华文城
+          <span class="small">词语与拼音挑战</span>
+        </div>
+        <div class="zone zone-boss" data-zone="boss">
+          🐉 Boss神殿
+          <span class="small">综合挑战，奖励更高</span>
+        </div>
+
+        <div class="player" id="player" style="left: 48%; top: 62%;">
+          <div class="head"></div>
+          <div class="body"></div>
+          <div class="legs"><div class="leg"></div><div class="leg"></div></div>
+        </div>
+
+        <div class="pet" id="pet" style="left: 53%; top: 66%;">🐣</div>
+        <div class="speech" id="speech"></div>
+        <div class="footer-tip">点击地图区域开始任务｜像玩小游戏一样复习</div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="battleModal">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div class="muted" id="battleZoneText">区域</div>
+          <h2 style="margin:4px 0 0;">⚔️ 战斗挑战</h2>
+        </div>
+        <button class="btn btn-danger" id="closeBattleBtn">离开</button>
+      </div>
+
+      <div class="battle-grid">
+        <div class="battle-card">
+          <strong>🧝 你</strong>
+          <div class="hero-bar"><div class="hero-fill" id="heroFill"></div></div>
+          <div class="mini">生命值：<span id="heroHpText">100</span>/100</div>
+        </div>
+        <div class="battle-card">
+          <strong id="enemyName">👾 小怪物</strong>
+          <div class="enemy-bar"><div class="enemy-fill" id="enemyFill"></div></div>
+          <div class="mini">生命值：<span id="enemyHpText">40</span>/<span id="enemyMaxHpText">40</span></div>
+        </div>
+      </div>
+
+      <div class="question-box">
+        <div class="muted" id="questionTypeText">题目类型</div>
+        <h2 id="questionText">题目</h2>
+        <div id="questionHint" class="mini"></div>
+        <input type="text" id="answerInput" placeholder="请输入答案后按 Enter 或点击提交" />
+        <div class="actions">
+          <button class="btn btn-primary" id="submitAnswerBtn">提交答案</button>
+          <button class="btn btn-secondary" id="repeatVoiceBtn">🔊 再听一次</button>
+          <button class="btn btn-secondary" id="skipBtn">跳过（扣5血）</button>
+        </div>
+        <div class="reward" id="rewardBox"></div>
+      </div>
+
+      <div class="log" id="battleLog"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      level: 1,
+      xp: 0,
+      nextXp: 30,
+      coins: 0,
+      hp: 100,
+      correct: 0,
+      wrong: 0,
+      combo: 0,
+      currentZone: '未进入',
+      petStage: 0,
+      petMood: 0,
+      bonusAttack: 0,
+    };
+
+    const petStages = [
+      { name: '蛋宝宝', icon: '🐣', need: 0 },
+      { name: '小鸡勇者', icon: '🐤', need: 30 },
+      { name: '火焰鸟', icon: '🐥', need: 80 },
+      { name: '神兽凤凰', icon: '🦅', need: 150 },
+    ];
+
+    const englishWords = [
+      { q: 'apple', hint: '一种水果', type: '英文听写' },
+      { q: 'school', hint: '每天上课的地方', type: '英文听写' },
+      { q: 'beautiful', hint: '美丽的', type: '英文听写' },
+      { q: 'computer', hint: '电脑', type: '英文听写' },
+      { q: 'holiday', hint: '假期', type: '英文听写' },
+      { q: 'adventure', hint: '冒险', type: '英文听写' },
+    ];
+
+    const chineseWords = [
+      { q: '灿烂', hint: '形容光彩鲜明耀眼', type: '华文词语' },
+      { q: '无可奈何', hint: '没有办法，只好这样', type: '华文词语' },
+      { q: '躺卧', hint: '身体平放或侧卧', type: '华文词语' },
+      { q: '勤劳', hint: '做事努力，不懒惰', type: '华文词语' },
+      { q: '合作', hint: '大家一起完成事情', type: '华文词语' },
+    ];
+
+    function randomMathQuestion() {
+      const a = Math.floor(Math.random() * 12) + 1;
+      const b = Math.floor(Math.random() * 12) + 1;
+      const type = Math.floor(Math.random() * 4);
+      if (type === 0) return { q: `${a} + ${b} = ?`, answer: String(a + b), hint: '加法', type: '数学挑战' };
+      if (type === 1) return { q: `${a + b} - ${b} = ?`, answer: String(a), hint: '减法', type: '数学挑战' };
+      if (type === 2) return { q: `${a} × ${b} = ?`, answer: String(a * b), hint: '乘法', type: '数学挑战' };
+      return { q: `${a * b} ÷ ${b} = ?`, answer: String(a), hint: '除法', type: '数学挑战' };
+    }
+
+    let battle = {
+      active: false,
+      zone: '',
+      enemyHp: 40,
+      enemyMaxHp: 40,
+      enemyName: '👾 小怪物',
+      currentQuestion: null,
+    };
+
+    const playerEl = document.getElementById('player');
+    const petEl = document.getElementById('pet');
+    const speechEl = document.getElementById('speech');
+    const worldEl = document.getElementById('world');
+    const battleModal = document.getElementById('battleModal');
+    const answerInput = document.getElementById('answerInput');
+    const battleLog = document.getElementById('battleLog');
+    const rewardBox = document.getElementById('rewardBox');
+
+    function updateUI() {
+      document.getElementById('levelText').textContent = state.level;
+      document.getElementById('xpText').textContent = state.xp;
+      document.getElementById('nextXpText').textContent = state.nextXp;
+      document.getElementById('coinText').textContent = state.coins;
+      document.getElementById('hpText').textContent = state.hp;
+      document.getElementById('heroHpText').textContent = state.hp;
+      document.getElementById('heroFill').style.width = `${Math.max(0, state.hp)}%`;
+      document.getElementById('correctText').textContent = state.correct;
+      document.getElementById('wrongText').textContent = state.wrong;
+      document.getElementById('comboText').textContent = state.combo;
+      document.getElementById('zoneText').textContent = state.currentZone;
+      const pet = getPetStage();
+      document.getElementById('petStageText').textContent = pet.name;
+      petEl.textContent = pet.icon;
+      document.getElementById('petDesc').textContent = `当前宠物：${pet.name}。再继续做题，它会越来越强。`;
+      saveLocalSilently();
+    }
+
+    function getPetStage() {
+      let idx = 0;
+      for (let i = 0; i < petStages.length; i++) {
+        if (state.xp >= petStages[i].need) idx = i;
+      }
+      state.petStage = idx;
+      return petStages[idx];
+    }
+
+    function showSpeech(text, x, y) {
+      speechEl.textContent = text;
+      speechEl.style.left = `${x}px`;
+      speechEl.style.top = `${y}px`;
+      speechEl.style.display = 'block';
+      setTimeout(() => speechEl.style.display = 'none', 1800);
+    }
+
+    function speak(text, lang = 'zh-CN') {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 0.95;
+      window.speechSynthesis.speak(utter);
+    }
+
+    function moveTo(el, targetX, targetY) {
+      el.style.left = `${targetX}px`;
+      el.style.top = `${targetY}px`;
+    }
+
+    function goToZone(zoneEl) {
+      const rect = zoneEl.getBoundingClientRect();
+      const worldRect = worldEl.getBoundingClientRect();
+      const targetX = rect.left - worldRect.left + rect.width / 2 - 30;
+      const targetY = rect.top - worldRect.top + rect.height / 2 - 45;
+      moveTo(playerEl, targetX, targetY);
+      moveTo(petEl, targetX + 40, targetY + 24);
+      const zone = zoneEl.dataset.zone;
+      state.currentZone = zoneLabel(zone);
+      updateUI();
+      showSpeech(`前往 ${zoneLabel(zone)}！`, targetX - 20, targetY - 55);
+      setTimeout(() => startBattle(zone), 520);
+    }
+
+    function zoneLabel(zone) {
+      return ({ english: '英文森林', math: '数学塔', chinese: '华文城', boss: 'Boss神殿' })[zone] || zone;
+    }
+
+    function startBattle(zone) {
+      battle.active = true;
+      battle.zone = zone;
+      const config = {
+        english: { hp: 40, name: '👾 拼写怪' },
+        math: { hp: 45, name: '🤖 数字怪' },
+        chinese: { hp: 42, name: '👹 词语怪' },
+        boss: { hp: 80, name: '🐉 综合Boss' },
+      }[zone];
+      battle.enemyHp = config.hp;
+      battle.enemyMaxHp = config.hp;
+      battle.enemyName = config.name;
+      document.getElementById('enemyName').textContent = config.name;
+      document.getElementById('enemyHpText').textContent = battle.enemyHp;
+      document.getElementById('enemyMaxHpText').textContent = battle.enemyMaxHp;
+      document.getElementById('enemyFill').style.width = '100%';
+      document.getElementById('battleZoneText').textContent = zoneLabel(zone);
+      battleLog.innerHTML = `${zoneLabel(zone)} 战斗开始！<br>`;
+      rewardBox.style.display = 'none';
+      battleModal.classList.add('show');
+      nextQuestion();
+    }
+
+    function getQuestionForZone(zone) {
+      if (zone === 'english') {
+        const item = englishWords[Math.floor(Math.random() * englishWords.length)];
+        return { ...item, answer: item.q, voice: item.q, lang: 'en-US' };
+      }
+      if (zone === 'chinese') {
+        const item = chineseWords[Math.floor(Math.random() * chineseWords.length)];
+        return { ...item, answer: item.q, voice: item.q, lang: 'zh-CN' };
+      }
+      if (zone === 'math') {
+        const item = randomMathQuestion();
+        return { ...item, voice: item.q, lang: 'zh-CN' };
+      }
+      const pool = [
+        ...englishWords.map(x => ({ ...x, answer: x.q, voice: x.q, lang: 'en-US' })),
+        ...chineseWords.map(x => ({ ...x, answer: x.q, voice: x.q, lang: 'zh-CN' })),
+        randomMathQuestion(),
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function nextQuestion() {
+      battle.currentQuestion = getQuestionForZone(battle.zone);
+      document.getElementById('questionTypeText').textContent = battle.currentQuestion.type;
+      document.getElementById('questionText').textContent = battle.currentQuestion.q;
+      document.getElementById('questionHint').textContent = `提示：${battle.currentQuestion.hint}`;
+      answerInput.value = '';
+      answerInput.focus();
+      if (battle.zone !== 'math') speak(battle.currentQuestion.voice, battle.currentQuestion.lang || 'zh-CN');
+    }
+
+    function normalize(text) {
+      return String(text).trim().toLowerCase().replace(/\s+/g, '');
+    }
+
+    function addLog(text) {
+      battleLog.innerHTML += `${text}<br>`;
+      battleLog.scrollTop = battleLog.scrollHeight;
+    }
+
+    function handleAnswer() {
+      if (!battle.active || !battle.currentQuestion) return;
+      const userAnswer = normalize(answerInput.value);
+      const correctAnswer = normalize(battle.currentQuestion.answer);
+      if (!userAnswer) return;
+
+      if (userAnswer === correctAnswer) {
+        const baseDamage = 15 + Math.min(15, state.combo * 2) + state.bonusAttack;
+        battle.enemyHp = Math.max(0, battle.enemyHp - baseDamage);
+        state.correct += 1;
+        state.combo += 1;
+        addXp(8 + (battle.zone === 'boss' ? 6 : 0));
+        state.coins += 6 + (battle.zone === 'boss' ? 5 : 0);
+        addLog(`✅ 答对！你造成 ${baseDamage} 点伤害。`);
+        if (state.combo >= 3) addLog(`🔥 连击 ${state.combo} 次，伤害提升！`);
+        state.bonusAttack = 0;
+      } else {
+        const damage = battle.zone === 'boss' ? 14 : 8;
+        state.hp = Math.max(0, state.hp - damage);
+        state.wrong += 1;
+        state.combo = 0;
+        addLog(`❌ 答错了，正确答案是：${battle.currentQuestion.answer}`);
+        addLog(`💥 敌人反击，你失去 ${damage} 生命。`);
+      }
+
+      document.getElementById('enemyHpText').textContent = battle.enemyHp;
+      document.getElementById('enemyFill').style.width = `${(battle.enemyHp / battle.enemyMaxHp) * 100}%`;
+      updateUI();
+
+      if (state.hp <= 0) {
+        addLog('😵 你被击败了，系统自动回复到 100 血。');
+        state.hp = 100;
+        battle.active = false;
+        updateUI();
+        setTimeout(() => battleModal.classList.remove('show'), 1200);
+        return;
+      }
+
+      if (battle.enemyHp <= 0) {
+        winBattle();
+      } else {
+        nextQuestion();
+      }
+    }
+
+    function winBattle() {
+      battle.active = false;
+      const rewardCoins = battle.zone === 'boss' ? 20 : 10;
+      const rewardXp = battle.zone === 'boss' ? 18 : 10;
+      state.coins += rewardCoins;
+      addXp(rewardXp);
+      rewardBox.style.display = 'block';
+      rewardBox.textContent = `🎉 胜利！获得 ${rewardCoins} 金币 + ${rewardXp} 经验`;
+      addLog(`🏆 你击败了 ${battle.enemyName}！`);
+      addLog(`🎁 奖励：${rewardCoins} 金币，${rewardXp} 经验。`);
+      updateUI();
+      setTimeout(() => {
+        battleModal.classList.remove('show');
+        rewardBox.style.display = 'none';
+      }, 1800);
+    }
+
+    function addXp(amount) {
+      state.xp += amount;
+      while (state.xp >= state.nextXp) {
+        state.xp -= state.nextXp;
+        state.level += 1;
+        state.nextXp = Math.floor(state.nextXp * 1.3);
+        state.coins += 15;
+        showSpeech(`升级啦！Lv.${state.level}`, playerEl.offsetLeft, playerEl.offsetTop - 50);
+        speak(`恭喜升级，等级 ${state.level}`);
+      }
+      getPetStage();
+    }
+
+    function buyItem(type) {
+      if (type === 'potion') {
+        if (state.coins < 20) return alert('金币不够');
+        state.coins -= 20;
+        state.hp = Math.min(100, state.hp + 20);
+        updateUI();
+        alert('已购买补血药水，恢复20生命');
+      }
+      if (type === 'scroll') {
+        if (state.coins < 30) return alert('金币不够');
+        state.coins -= 30;
+        state.bonusAttack += 10;
+        updateUI();
+        alert('已购买攻击卷轴，下次答对多10伤害');
+      }
+    }
+    window.buyItem = buyItem;
+
+    function saveLocal() {
+      localStorage.setItem('dictation_adventure_save', JSON.stringify(state));
+      alert('已存档到本机');
+    }
+
+    function saveLocalSilently() {
+      localStorage.setItem('dictation_adventure_save', JSON.stringify(state));
+    }
+
+    function loadLocal() {
+      const raw = localStorage.getItem('dictation_adventure_save');
+      if (!raw) return alert('还没有存档');
+      const saved = JSON.parse(raw);
+      Object.assign(state, saved);
+      updateUI();
+      alert('已读取存档');
+    }
+
+    function feedPet() {
+      if (state.coins < 10) return alert('金币不够');
+      state.coins -= 10;
+      state.petMood += 1;
+      addXp(3);
+      updateUI();
+      speak('宠物很开心');
+      alert('宠物开心了，还额外获得3经验');
+    }
+
+    document.querySelectorAll('.zone').forEach(zone => {
+      zone.addEventListener('click', () => goToZone(zone));
+    });
+
+    document.getElementById('submitAnswerBtn').addEventListener('click', handleAnswer);
+    answerInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleAnswer();
+    });
+    document.getElementById('repeatVoiceBtn').addEventListener('click', () => {
+      if (!battle.currentQuestion) return;
+      speak(battle.currentQuestion.voice, battle.currentQuestion.lang || 'zh-CN');
+    });
+    document.getElementById('skipBtn').addEventListener('click', () => {
+      if (!battle.active) return;
+      state.hp = Math.max(0, state.hp - 5);
+      state.combo = 0;
+      addLog('⏭️ 你跳过了这题，扣 5 血。');
+      updateUI();
+      nextQuestion();
+    });
+    document.getElementById('closeBattleBtn').addEventListener('click', () => {
+      battle.active = false;
+      battleModal.classList.remove('show');
+    });
+    document.getElementById('saveBtn').addEventListener('click', saveLocal);
+    document.getElementById('loadBtn').addEventListener('click', loadLocal);
+    document.getElementById('feedPetBtn').addEventListener('click', feedPet);
+    document.getElementById('speakGuideBtn').addEventListener('click', () => {
+      speak('欢迎来到听写冒险岛。点击地图开始任务，答对就能打败怪物并升级宠物。');
+    });
+
+    updateUI();
+  </script>
+</body>
 </html>
